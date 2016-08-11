@@ -1,0 +1,61 @@
+#!/bin/bash -e
+
+RUNDIR=/run/postgresql
+
+if [[ ${1:0:1} = '-' ]]; then
+    set -- postgres "$@"
+fi
+
+if [[ $1 = postgres ]]; then
+    mkdir -p "$PGDATA"
+    chmod 700 "$PGDATA"
+    chown -R postgres "$PGDATA" "$RUNDIR"
+    chmod g+s "$RUNDIR"
+
+    # look specifically for PG_VERSION, as it is expected in the DB dir
+    if [[ ! -s $PGDATA/PG_VERSION ]]; then
+        eval "gosu postgres initdb $POSTGRES_INITDB_ARGS"
+
+        if [[ -n $POSTGRES_PASSWORD ]]; then
+                    pass="PASSWORD '$POSTGRES_PASSWORD'"
+
+            echo "host all all 0.0.0.0/0 md5" >> "$PGDATA/pg_hba.conf"
+            sed -ri "s|^#?(listen_addresses)\s*=\s*\S+.*|\1 = '*'|" $PGDATA/postgresql.conf
+        else
+            pass=
+            echo 'WARNING: No $POSTGRES_PASSWORD set! Only local access enabled.'
+        fi
+
+        gosu postgres pg_ctl -o "-c listen_addresses='localhost'" -w start
+
+        : ${POSTGRES_USER:=postgres}
+        : ${POSTGRES_DB:=$POSTGRES_USER}
+        export POSTGRES_USER POSTGRES_DB
+
+        psql=( psql -v ON_ERROR_STOP=1 )
+
+        if [[ $POSTGRES_DB != postgres ]]; then
+            "${psql[@]}" --username postgres <<<"CREATE DATABASE \"$POSTGRES_DB\";"
+            echo
+        fi
+
+        if [[ $POSTGRES_USER = postgres ]]; then
+            op='ALTER'
+        else
+            op='CREATE'
+        fi
+
+        "${psql[@]}" --username postgres <<<"$op USER \"$POSTGRES_USER\" WITH SUPERUSER $pass;"
+
+        psql+=( --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" )
+
+        gosu postgres pg_ctl -m fast -w stop
+
+        echo 'PostgreSQL init process complete; ready for start up.'
+    fi
+
+    exec gosu postgres "$@"
+fi
+
+exec "$@"
+
