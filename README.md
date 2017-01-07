@@ -69,7 +69,7 @@ $ docker exec -it some-postgres psql -h localhost -U postgres
 
 The [Docker image](https://hub.docker.com/r/tklx/postgres/) is built, tested and pushed by [CircleCI](https://circleci.com/gh/tklx/postgres) from source hosted on [GitHub](https://github.com/tklx/postgres).
 
-* Tag: ``x.y.z`` refers to a [release](https://github.com/tklx/mongodb/releases) (recommended).
+* Tag: ``x.y.z`` refers to a [release](https://github.com/tklx/postgres/releases) (recommended).
 * Tag: ``latest`` refers to the master branch.
 
 ## Status
